@@ -1,0 +1,9 @@
+{
+  "name": "gestion-sauvegardes",
+  "private": true,
+  "type": "module",
+  "description": "Sauvegardes chiffrées de la base Gestion",
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}

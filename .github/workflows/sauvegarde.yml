@@ -1,0 +1,41 @@
+# Sauvegarde de la base Gestion, chaque nuit à 2 h (heure de Bangkok), et à la main depuis l'onglet Actions (« Run workflow »).
+# Le fichier chiffré est ajouté au dossier sauvegardes/ de ce dépôt. GitHub envoie un e-mail au propriétaire si le passage échoue, et Gestion
+# affiche un bandeau rouge aux administrateurs après 30 heures sans sauvegarde réussie.
+name: Sauvegarde Gestion
+
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sauvegarde-gestion
+  cancel-in-progress: false
+
+jobs:
+  sauvegarder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Sauvegarder
+        env:
+          SAUVEGARDE_DB_MOT_DE_PASSE: ${{ secrets.SAUVEGARDE_DB_MOT_DE_PASSE }}
+          SAUVEGARDE_PHRASE: ${{ secrets.SAUVEGARDE_PHRASE }}
+        run: node outils/sauvegarder.mjs
+      - name: Ranger le fichier dans le dépôt
+        run: |
+          git config user.name "sauvegarde-gestion"
+          git config user.email "sauvegarde-gestion@users.noreply.github.com"
+          git add -A sauvegardes
+          if git diff --cached --quiet; then echo "Rien de nouveau."; exit 0; fi
+          git commit -q -m "Sauvegarde du $(TZ=Asia/Bangkok date +%d.%m.%Y)"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
+          exit 1
